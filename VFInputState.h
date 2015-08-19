@@ -37,6 +37,27 @@ public:
 		}
 	}
 
+	int getActualPureArgonFlow() {
+		return _actualPureArgonFlow;
+	}
+
+	int getActualBubblerFlow() {
+		return _actualBubblerFlow;
+	}
+
+	int getActualChamberPressure() {
+		return _actualChamberPressure;
+	}
+
+	double getPureArgonFlowVolume() {
+		return _pureArgonFlowVolume;
+	}
+
+	double getBubblerFlowVolume() {
+		return _bubblerFlowVolume;
+	}
+
+
 private:
 	int _actualPureArgonFlow;
 	int _actualBubblerFlow;

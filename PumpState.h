@@ -1,5 +1,6 @@
 #pragma once
 #include "VFOutputState.h"
+#include "VFSystemConstants.h"
 class PumpState :
 	public VFOutputState
 {
@@ -21,6 +22,15 @@ public:
 
 	~PumpState()
 	{
+	}
+
+	bool PumpState::isAllowed(VFInputState inputState) {
+		if (inputState.getBubblerFlowVolume() > CHAMBER_VOLUME) {
+			return false;
+		}
+		else {
+			
+		}
 	}
 };
 
