@@ -22,8 +22,8 @@
 #define BUBBLER_OUTLET_VALVE_PIN         24
 #define CHAMBER_INLET_VALVE_PIN          25
 #define CHAMBER_OUTLET_VALVE_PIN         26
-#define VENT_VALVE_PIN                   27
-#define PUMP_VALVE_PIN                   28
+#define EXHAUST_VALVE_PIN                   27
+#define PURGE_VALVE_PIN                   28
 
 //Flow controller input pin assignments
 #define ACTUAL_BUBBLER_FLOW_PIN           0
@@ -65,8 +65,8 @@ bool bubblerOutletValveOpen;
 bool pureArgonValveOpen;
 bool chamberInletValveOpen;
 bool chamberOutletValveOpen;
-bool ventValveOpen;
-bool pumpValveOpen;
+bool exhaustValveOpen;
+bool purgeValveOpen;
 bool vacuumPumpIsActive;
 
 String serialCommand;
@@ -103,8 +103,8 @@ void setup() {
 	pinMode(PURE_ARGON_VALVE_PIN, OUTPUT);
 	pinMode(CHAMBER_INLET_VALVE_PIN, OUTPUT);
 	pinMode(CHAMBER_OUTLET_VALVE_PIN, OUTPUT);
-	pinMode(VENT_VALVE_PIN, OUTPUT);
-	pinMode(PUMP_VALVE_PIN, OUTPUT);
+	pinMode(EXHAUST_VALVE_PIN, OUTPUT);
+	pinMode(PURGE_VALVE_PIN, OUTPUT);
 
 	//set LED pins as outputs
 	pinMode(CONNECTED_TO_PC_LED,OUTPUT);
@@ -231,8 +231,8 @@ void writeValves() {
 	digitalWrite(PURE_ARGON_VALVE_PIN, pureArgonValveOpen);
 	digitalWrite(CHAMBER_INLET_VALVE_PIN, chamberInletValveOpen);
 	digitalWrite(CHAMBER_OUTLET_VALVE_PIN, chamberOutletValveOpen);
-	digitalWrite(VENT_VALVE_PIN, ventValveOpen);
-	digitalWrite(PUMP_VALVE_PIN, pumpValveOpen);
+	digitalWrite(EXHAUST_VALVE_PIN, exhaustValveOpen);
+	digitalWrite(PURGE_VALVE_PIN, purgeValveOpen);
 }
 
 
@@ -374,8 +374,8 @@ void sendValveStates() {
 	reply += (bubblerOutletValveOpen ? "1" : "0");
 	reply += (chamberInletValveOpen ? "1" : "0");
 	reply += (chamberOutletValveOpen? "1" : "0");
-	reply += (ventValveOpen ? "1" : "0");
-	reply += (pumpValveOpen ? "1" : "0");
+	reply += (exhaustValveOpen ? "1" : "0");
+	reply += (purgeValveOpen ? "1" : "0");
 	
 	replySerial(reply);
 
@@ -423,13 +423,13 @@ void gotoStopState() {
 	pureArgonFC.setSetpoint(0);
 	bubblerFC.setSetpoint(0);
 	
+	pureArgonValveOpen = false;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
-	pureArgonValveOpen = false;
 	chamberInletValveOpen = false;
 	chamberOutletValveOpen = false;
-	pumpValveOpen = false;
-	ventValveOpen = false;
+	exhaustValveOpen = false;
+	purgeValveOpen = false;
 	
 	//raise flags
 	previousState = currentState;
@@ -450,13 +450,13 @@ void gotoPumpState() {
 	pureArgonFC.setSetpoint(0);
 	bubblerFC.setSetpoint(0);
 	
+	pureArgonValveOpen = false;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
-	pureArgonValveOpen = false;
 	chamberInletValveOpen = false;
 	chamberOutletValveOpen = true;
-	pumpValveOpen = true;
-	ventValveOpen = false;
+	exhaustValveOpen = false;
+	purgeValveOpen = false;
 
 	//raise flags
 	previousState = currentState;
@@ -468,7 +468,7 @@ void gotoPumpState() {
 }
 
 /**
-In the VENT state, the chamber is at low pressure and is being filled with pure argon.
+In the VENT state, the chamber is at low pressure and is being filled with pure argon or nitrogen.
 **/
 void gotoVentState() {
 
@@ -479,13 +479,13 @@ void gotoVentState() {
 	pureArgonFC.setSetpoint(MAXIMUM_FLOW_SETPOINT);
 	bubblerFC.setSetpoint(0);
 	
+	pureArgonValveOpen = true;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
-	pureArgonValveOpen = true;
 	chamberInletValveOpen = true;
 	chamberOutletValveOpen = true;
-	pumpValveOpen = false;
-	ventValveOpen = false;
+	exhaustValveOpen = false;
+	purgeValveOpen = true;
 
 
 	//raise flags
@@ -506,13 +506,13 @@ void gotoFlowState() {
 	
 	dac.activate();
 
+	pureArgonValveOpen = true;
 	bubblerInletValveOpen = true;
 	bubblerOutletValveOpen = true;
-	pureArgonValveOpen = true;
 	chamberInletValveOpen = true;
 	chamberOutletValveOpen = true;
-	pumpValveOpen = false;
-	ventValveOpen = true;
+	exhaustValveOpen = true;
+	purgeValveOpen = false;
 
 
 	//raise flags
@@ -524,7 +524,7 @@ void gotoFlowState() {
 }
 
 /**
-In the PURGE state, all components are at atmospheric pressure. The chamber is being purged with pure argon.
+In the PURGE state, all components are at atmospheric pressure. The chamber is being purged with pure argon and or nitrogen.
 **/
 void gotoPurgeState() {
 
@@ -535,13 +535,13 @@ void gotoPurgeState() {
 	pureArgonFC.setSetpoint(MAXIMUM_FLOW_SETPOINT);
 	bubblerFC.setSetpoint(0);
 	
+	pureArgonValveOpen = true;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
-	pureArgonValveOpen = true;
 	chamberInletValveOpen = true;
 	chamberOutletValveOpen = true;
-	pumpValveOpen = false;
-	ventValveOpen = true;
+	purgeValveOpen = true;
+	exhaustValveOpen = true;
 
 	//raise flags
 	previousState = currentState;
