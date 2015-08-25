@@ -5,7 +5,7 @@
 #include "FlowController.h"
 #include "AD5263.h"
 
-#define FIRMWARE_VERSION "Beta1"
+#define FIRMWARE_VERSION "Beta2"
 
 #define SERIAL Serial1
 
@@ -22,13 +22,18 @@
 #define BUBBLER_OUTLET_VALVE_PIN         24
 #define CHAMBER_INLET_VALVE_PIN          25
 #define CHAMBER_OUTLET_VALVE_PIN         26
-#define EXHAUST_VALVE_PIN                   27
-#define PURGE_VALVE_PIN                   28
+#define EXHAUST_VALVE_PIN                27
+#define PURGE_VALVE_PIN                  28
 
 //Flow controller input pin assignments
 #define ACTUAL_BUBBLER_FLOW_PIN           0
 #define ACTUAL_PURE_ARGON_FLOW_PIN        1
-#define ACTUAL_CHAMBER_PRESSURE_PIN       2
+#define ACTUAL_CHAMBER_PRESSURE_PIN       2 //currently not in use
+
+//Pressure Gauge controller relay inputs
+#define PRESSURE_BELOW_THRESHOLD_PIN	 42
+#define PRESSURE_GAUGE_ONLINE_PIN		 43
+
 
 //LED indicators
 #define CONNECTED_TO_PC_LED				LED_BUILTIN
@@ -41,7 +46,8 @@
 #define AD6253_REFERENCE_VOLTAGE		  5
 
 #define MAXIMUM_FLOW_SETPOINT           400 //SCCM
-#define VACUUM_PRESSURE_THRESHOLD       100
+
+
 
 FlowController bubblerFC(ACTUAL_BUBBLER_FLOW_PIN);
 FlowController pureArgonFC(ACTUAL_PURE_ARGON_FLOW_PIN);
@@ -54,8 +60,6 @@ float flowControllerKFactor = 1;
 
 int pureArgonVentFlowSetpoint;
 int pureArgonPurgeFlowSetpoint;
-
-int actualChamberPressure;
 
 int currentState;
 char previousState;
@@ -75,8 +79,9 @@ bool emergency;
 bool manualStateChangeAllowed = true;
 bool updatePhysicalOutputs = true;
 
-bool chamberIsDirty;
 bool chamberIsVacuum;
+bool pressureGaugeIsActive;
+bool chamberIsAtmospheric;
 
 #define PC_HOST_VERIFICATION_TIMEOUT 3 //seconds
 bool pcHostStatusVerified = false;
@@ -96,7 +101,7 @@ void setPureArgonPurgeFlowSetpoint(int value) {
 
 
 void setup() {
-	
+
 	//set valve control pins as outputs
 	pinMode(BUBBLER_INLET_VALVE_PIN, OUTPUT);
 	pinMode(BUBBLER_OUTLET_VALVE_PIN, OUTPUT);
@@ -107,13 +112,17 @@ void setup() {
 	pinMode(PURGE_VALVE_PIN, OUTPUT);
 
 	//set LED pins as outputs
-	pinMode(CONNECTED_TO_PC_LED,OUTPUT);
+	pinMode(CONNECTED_TO_PC_LED, OUTPUT);
+
+	//set pressure gauge relay pins as inputs
+	pinMode(PRESSURE_BELOW_THRESHOLD_PIN, INPUT);
+	pinMode(PRESSURE_GAUGE_ONLINE_PIN, INPUT);
 
 
 	//setup AD5263 on SPI bus
 	dac.initialize();
-	
-	
+
+
 	//initialize flowcontrollers
 	bubblerFC.setKFactor(1);
 	bubblerFC.setInputAdcFullScale(1023);
@@ -138,20 +147,21 @@ void setup() {
 
 
 void loop() {
-	
-	
+
+
 	//main state machine
 	readPhysicalInputs();
 	checkForEmergency();
 	if (emergency) {
 		handleEmergency();
 
-	} else if (commandReceived) {
+	}
+	changeStateIfNecessary();
+	if (commandReceived) {
 		executeCommand(serialCommand);
 		serialCommand = "";
 		commandReceived = false;
 	}
-
 	if (updatePhysicalOutputs) {
 		writePhysicalOutputs();
 		updatePhysicalOutputs = false;
@@ -165,7 +175,7 @@ Reads all relevant analog and digital inputs and stores their values in the appr
 void readPhysicalInputs() {
 	bubblerFC.getActualFlow();
 	pureArgonFC.getActualFlow();
-	readActualChamberPressure();
+	readPressureGaugeControllerRelays();
 }
 
 
@@ -173,54 +183,46 @@ void readPhysicalInputs() {
 Writes all relevate analog and digital output ports
 **/
 void writePhysicalOutputs() {
-  writeValves();
-  writeBubblerFlowSetpoint();
-  writePureArgonFlowSetpoint();
-}
-
-
-void setPcHostStatusVerified(bool verified) {
-	pcHostStatusNotVerifiedTime = 0;
-	if (verified) {
-		pcHostStatusVerified = true;
-		digitalWrite(CONNECTED_TO_PC_LED, HIGH);
-	} else {
-		pcHostStatusVerified = false;
-		executeCommand("STOP!");
-		digitalWrite(CONNECTED_TO_PC_LED, LOW);
-	}
-	
+	writeValves();
+	writeBubblerFlowSetpoint();
+	writePureArgonFlowSetpoint();
+	writePcHostStatusVerified();
 }
 
 
 //----------------Port IO Methods------------------
 
 /**
+Reads analog pin 'ACTUAL_CHAMBER_PRESSURE' and stores its value in 'actualChamberPressure'
+**/
+void readPressureGaugeControllerRelays() {
+	chamberIsVacuum = digitalRead(PRESSURE_BELOW_THRESHOLD_PIN);
+	pressureGaugeIsActive = digitalRead(PRESSURE_GAUGE_ONLINE_PIN);
+	chamberIsAtmospheric = (!chamberIsVacuum) && pressureGaugeIsActive;
+}
+
+/**
+Turns the CONNECTED_TO_PC_LED on or off depending on pcHostStatusVerified
+**/
+void writePcHostStatusVerified() {
+	digitalWrite(CONNECTED_TO_PC_LED, pcHostStatusVerified);
+}
+
+/**
 Writes the value in 'bubblerFlowSetpoint' to AD5263 channel 0
 **/
 void writeBubblerFlowSetpoint() {
-	dac.writeChannelValue(BUBBLER_FLOW_POT_CHANNEL,bubblerFC.getSetpointAdcValue());
+	dac.writeChannelValue(BUBBLER_FLOW_POT_CHANNEL, bubblerFC.getSetpointAdcValue());
 }
 
 /**
 Writes the value in 'pureArgonFlowSetpoint' to AD5263 channel 1
 **/
 void writePureArgonFlowSetpoint() {
-	dac.writeChannelValue(PURE_ARGON_FLOW_POT_CHANNEL,pureArgonFC.getSetpointAdcValue());
+	dac.writeChannelValue(PURE_ARGON_FLOW_POT_CHANNEL, pureArgonFC.getSetpointAdcValue());
 }
 
 
-/**
-Reads analog pin 'ACTUAL_CHAMBER_PRESSURE' and stores its value in 'actualChamberPressure'
-**/
-void readActualChamberPressure() {
-	actualChamberPressure = analogRead(ACTUAL_CHAMBER_PRESSURE_PIN);
-	if (actualChamberPressure <= VACUUM_PRESSURE_THRESHOLD) {
-		chamberIsVacuum = true;
-	} else {
-		chamberIsVacuum = false;
-	}
-}
 
 /**
 Writes the values in the valve control registers to the corresponding digital output ports.
@@ -243,105 +245,129 @@ void writeValves() {
 Interrupt handler for Serial data that arrives. Adds incoming bytes to the 'serialCommand' string, and raises a flag 'commandReceived' when the 'END' character has been read.
 **/
 void serialEvent1() {
-  while (SERIAL.available()) {
-	// get the new byte:
-	char inChar = (char)SERIAL.read(); 
-	// add it to the inputString:
-	
-	// if the incoming character is a newline, set a flag
-	// so the main loop can do something about it:
-	if (inChar == '\n') {
-		commandReceived = true;
-	} else {
-		serialCommand += inChar;
+	while (SERIAL.available()) {
+		// get the new byte:
+		char inChar = (char)SERIAL.read();
+		// add it to the inputString:
+
+		// if the incoming character is a newline, set a flag
+		// so the main loop can do something about it:
+		if (inChar == '\n') {
+			commandReceived = true;
+		}
+		else {
+			serialCommand += inChar;
+		}
 	}
-  }
-  
+
 }
 
 /**
 Checks if there is a complete serial command waiting to be handled and handles it.
 **/
 void executeCommand(String command) {
-  
+
 	if (command == "BBFLOW?") {
 		sendActualBubblerFlow();
-	
-	} else if (command == "PAFLOW?") {
+
+	}
+	else if (command == "PAFLOW?") {
 		sendActualPureArgonFlow();
 
-	} else if (command.startsWith("PAFLOWSP!") && command.length() > 9) {
+	}
+	else if (command.startsWith("PAFLOWSP!") && command.length() > 9) {
 		if (currentState == FLOWSTATE) {
 			int value = command.substring(9).toInt();
 			pureArgonFC.setSetpoint(value);
 			updatePhysicalOutputs = true;
 		}
 		sendPureArgonFlowSetpoint();
-		
 
-	} else if (command.startsWith("BBFLOWSP!") && command.length() > 9) {
+
+	}
+	else if (command.startsWith("BBFLOWSP!") && command.length() > 9) {
 		if (currentState == FLOWSTATE) {
 			int value = command.substring(9).toInt();
 			bubblerFC.setSetpoint(value);
 			updatePhysicalOutputs = true;
 		}
 		sendBubblerFlowSetpoint();
-		
 
-	} else if (command == "VALVES?") {
+
+	}
+	else if (command == "VALVES?") {
 		sendValveStates();
 
-	} else if (command == "STATE?") {
+	}
+	else if (command == "STATE?") {
 		sendSystemState();
 
-	} else if (command == "PUMP?") {
+	}
+	else if (command == "PUMP?") {
 		sendVacuumPumpState();
 
-	} else if (command == "TEST") {
+	}
+	else if (command == "TEST") {
 		sendDebugInfo();
-	} else if (command == "VERSION?") {
+	}
+	else if (command == "VERSION?") {
 		sendVersionInfo();
 	}
-	
+
 	//the following commands are manual state change requests. Only the STOP command can be called when 'manualStateChangeAllowed' is false.
 	else if (command == "STOP!"){
 		gotoStopState();
-		
+
 	}
 
 	else if (manualStateChangeAllowed) {
 		if (command == "PUMP!") {
 			gotoPumpState();
 
-		} else if (command.startsWith("VENT!")) {
+		}
+		else if (command.startsWith("VENT!")) {
 			//check if a setpoint value is included
 			if (command.length() != 5) {
 				int value = command.substring(5).toInt();
 				setPureArgonVentFlowSetpoint(value);
 			}
-			
-			gotoVentState();
 
-		} else if (command == "FLOW!" && !chamberIsVacuum)  {
-			gotoFlowState();
+			if (chamberIsVacuum) {
+				gotoVentState();
+			}
+			else {
+				gotoPurgeState();
+			}
 
-		} else if (command.startsWith("PURGE!")) {
+		}
+		else if (command == "FLOW!")  {
+			if (chamberIsAtmospheric) {
+				gotoFlowState();
+			}
+		}
+		else if (command.startsWith("PURGE!")) {
 			//check if a setpoint value is included
 			if (command.length() > 6) {
 				int value = command.substring(6).toInt();
 				setPureArgonPurgeFlowSetpoint(value);
 			}
-			
-			gotoPurgeState();
 
-		} else {
+			if (chamberIsAtmospheric) {
+				gotoPurgeState();
+			}
+			else {
+				gotoVentState();
+			}
+		}
+		else {
 			replySerial("E:UNKNOWN: " + command);
 
 		}
 	}
 
-	setPcHostStatusVerified(true);
-	
+	pcHostStatusNotVerifiedTime = 0;
+	pcHostStatusVerified = true;
+
 }
 
 
@@ -373,10 +399,10 @@ void sendValveStates() {
 	reply += (bubblerInletValveOpen ? "1" : "0");
 	reply += (bubblerOutletValveOpen ? "1" : "0");
 	reply += (chamberInletValveOpen ? "1" : "0");
-	reply += (chamberOutletValveOpen? "1" : "0");
+	reply += (chamberOutletValveOpen ? "1" : "0");
 	reply += (exhaustValveOpen ? "1" : "0");
 	reply += (purgeValveOpen ? "1" : "0");
-	
+
 	replySerial(reply);
 
 }
@@ -397,8 +423,8 @@ void sendDebugInfo() {
 }
 
 void sendVersionInfo() {
-	String reply = String("VERSION:") + String("FIRMWARE ") + String(FIRMWARE_VERSION); 
-	replySerial(reply); 
+	String reply = String("VERSION:") + String("FIRMWARE ") + String(FIRMWARE_VERSION);
+	replySerial(reply);
 
 }
 
@@ -415,14 +441,14 @@ void replySerial(String message) {
 In the STOP state, all valves are closed and the vacuum pump is inactive.
 **/
 void gotoStopState() {
-	
+
 	//set outputs
 	vacuumPumpIsActive = false;
 
 	dac.deactivate();
 	pureArgonFC.setSetpoint(0);
 	bubblerFC.setSetpoint(0);
-	
+
 	pureArgonValveOpen = false;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
@@ -430,7 +456,7 @@ void gotoStopState() {
 	chamberOutletValveOpen = false;
 	exhaustValveOpen = false;
 	purgeValveOpen = false;
-	
+
 	//raise flags
 	previousState = currentState;
 	currentState = STOPSTATE;
@@ -449,7 +475,7 @@ void gotoPumpState() {
 	dac.deactivate();
 	pureArgonFC.setSetpoint(0);
 	bubblerFC.setSetpoint(0);
-	
+
 	pureArgonValveOpen = false;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
@@ -464,7 +490,7 @@ void gotoPumpState() {
 	updatePhysicalOutputs = true;
 
 
-	
+
 }
 
 /**
@@ -478,7 +504,7 @@ void gotoVentState() {
 	dac.activate();
 	pureArgonFC.setSetpoint(MAXIMUM_FLOW_SETPOINT);
 	bubblerFC.setSetpoint(0);
-	
+
 	pureArgonValveOpen = true;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
@@ -503,7 +529,7 @@ void gotoFlowState() {
 
 	//set outputs
 	vacuumPumpIsActive = false;
-	
+
 	dac.activate();
 
 	pureArgonValveOpen = true;
@@ -534,7 +560,7 @@ void gotoPurgeState() {
 	dac.activate();
 	pureArgonFC.setSetpoint(MAXIMUM_FLOW_SETPOINT);
 	bubblerFC.setSetpoint(0);
-	
+
 	pureArgonValveOpen = true;
 	bubblerInletValveOpen = false;
 	bubblerOutletValveOpen = false;
@@ -557,8 +583,10 @@ When the timer expires, 'pcHostStatusVerified' is set to false
 void on_pcHostVerificationExpire() {
 	if (pcHostStatusNotVerifiedTime < PC_HOST_VERIFICATION_TIMEOUT) {
 		pcHostStatusNotVerifiedTime++;
-	} else {
-		setPcHostStatusVerified(false);
+	}
+	else {
+		pcHostStatusVerified = false;
+		pcHostStatusNotVerifiedTime = 0;
 	}
 }
 
@@ -569,15 +597,37 @@ void on_pcHostVerificationExpire() {
 Checks all input values. If any inconsistencies are found, the system is immediately transferred to the STOP state.
 **/
 void checkForEmergency() {
-	//TODO: stub
-	emergency = false;
+	if (!pressureGaugeIsActive) {
+		emergency = true;
+		manualStateChangeAllowed = false;
+	}
+	else {
+		emergency = false;
+		manualStateChangeAllowed = true;
+	}
 }
 
 /**
 This code executes when an emergency has been detected
 **/
 void handleEmergency() {
-	executeCommand("STOP!");
+	//executeCommand("STOP!");
+}
+
+void changeStateIfNecessary() {
+	if (!pcHostStatusVerified || !pressureGaugeIsActive) {
+		gotoStopState();
+	}
+	else {
+		//if the chamber is in the ventstate and atmospheric pressure has been reached, go to the purge state
+		if (currentState == VENTSTATE && chamberIsAtmospheric) {
+			executeCommand("PURGE!");
+		}
+		//if the chamber is in the purge state and somehow the pressure drops, go the the vent state
+		else if (currentState == PURGESTATE && chamberIsVacuum) {
+			executeCommand("VENT!");
+		}
+	}
 }
 
 
