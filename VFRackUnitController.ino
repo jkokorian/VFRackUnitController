@@ -286,8 +286,6 @@ void executeCommand(String command) {
 			updatePhysicalOutputs = true;
 		}
 		sendBubblerFlowSetpoint();
-
-
 	}
 	else if (command == "VALVES?") {
 		sendValveStates();
