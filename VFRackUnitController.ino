@@ -61,8 +61,8 @@ float flowControllerKFactor = 1;
 int pureArgonVentFlowSetpoint;
 int pureArgonPurgeFlowSetpoint;
 
-int currentState;
 char previousState;
+char currentState;
 
 bool bubblerInletValveOpen;
 bool bubblerOutletValveOpen;
@@ -75,7 +75,6 @@ bool vacuumPumpIsActive;
 
 String serialCommand;
 bool commandReceived;
-bool emergency;
 bool manualStateChangeAllowed = true;
 bool updatePhysicalOutputs = true;
 
@@ -151,17 +150,12 @@ void loop() {
 
 	//main state machine
 	readPhysicalInputs();
-	checkForEmergency();
-	if (emergency) {
-		handleEmergency();
-
-	}
-	changeStateIfNecessary();
 	if (commandReceived) {
 		executeCommand(serialCommand);
 		serialCommand = "";
 		commandReceived = false;
 	}
+	validateSystemState();
 	if (updatePhysicalOutputs) {
 		writePhysicalOutputs();
 		updatePhysicalOutputs = false;
@@ -596,36 +590,23 @@ void on_pcHostVerificationExpire() {
 /**
 Checks all input values. If any inconsistencies are found, the system is immediately transferred to the STOP state.
 **/
-void checkForEmergency() {
-	if (!pressureGaugeIsActive) {
-		emergency = true;
-		manualStateChangeAllowed = false;
-	}
-	else {
-		emergency = false;
-		manualStateChangeAllowed = true;
-	}
-}
+void validateSystemState() {
 
-/**
-This code executes when an emergency has been detected
-**/
-void handleEmergency() {
-	//executeCommand("STOP!");
-}
-
-void changeStateIfNecessary() {
 	if (!pcHostStatusVerified || !pressureGaugeIsActive) {
+		manualStateChangeAllowed = false;
 		gotoStopState();
 	}
 	else {
+		manualStateChangeAllowed = true;
+		
 		//if the chamber is in the ventstate and atmospheric pressure has been reached, go to the purge state
 		if (currentState == VENTSTATE && chamberIsAtmospheric) {
-			executeCommand("PURGE!");
+			gotoPurgeState();
 		}
+		
 		//if the chamber is in the purge state and somehow the pressure drops, go the the vent state
 		else if (currentState == PURGESTATE && chamberIsVacuum) {
-			executeCommand("VENT!");
+			gotoVentState();
 		}
 	}
 }
