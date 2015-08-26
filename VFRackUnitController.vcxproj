@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -19,14 +19,12 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -43,10 +41,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>D:\Portable Software\arduino-1.0.3\hardware\arduino\cores\arduino;D:\Portable Software\arduino-1.0.3\hardware\arduino\variants\mega;D:\Portable Software\arduino-1.0.3\libraries\SPI;D:\Portable Software\arduino-1.0.3\libraries\SPI\utility;D:\Portable Software\arduino-1.0.3\libraries\Timer1;D:\Portable Software\arduino-1.0.3\libraries\Timer1\utility;D:\Portable Software\arduino-1.0.3\libraries\Timer3;D:\Portable Software\arduino-1.0.3\libraries\Timer3\utility;d:\portable software\arduino-1.0.3\hardware\tools\avr\avr\include\;d:\portable software\arduino-1.0.3\hardware\tools\avr\avr\include\avr\;d:\portable software\arduino-1.0.3\hardware\tools\avr\avr\;d:\portable software\arduino-1.0.3\hardware\tools\avr\lib\gcc\avr\4.3.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>D:\jkokorian\My Documents\_Delft\PhD\Projects\Valve and Flow Controller Rack Unit\Arduino\VFRackUnitController\Visual Micro\.VFRackUnitController.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>D:\arduino-1.0.4\hardware\arduino\cores\arduino;D:\arduino-1.0.4\hardware\arduino\variants\mega;D:\arduino-1.0.4\libraries\SPI;D:\arduino-1.0.4\libraries\SPI\utility;D:\arduino-1.0.4\libraries\TimerOne;D:\arduino-1.0.4\libraries\TimerOne\utility;D:\arduino-1.0.4\libraries\TimerThree;D:\arduino-1.0.4\libraries\TimerThree\utility;D:\arduino-1.0.4\libraries;D:\arduino-1.0.4\hardware\arduino\libraries;C:\Program Files (x86)\Visual Micro\Visual Micro for Arduino\Micro Platforms\default\debuggers;C:\Users\ODMS-admin\Documents\Arduino\libraries;d:\arduino-1.0.4\hardware\tools\avr\avr\include\;d:\arduino-1.0.4\hardware\tools\avr\avr\include\avr\;d:\arduino-1.0.4\hardware\tools\avr\avr\;d:\arduino-1.0.4\hardware\tools\avr\lib\gcc\avr\4.3.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>C:\Users\ODMS-admin\Documents\Visual Studio 2010\Projects\VFRackUnitController\Visual Micro\.VFRackUnitController.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
-      <PreprocessorDefinitions>__AVR_ATmega2560__;ARDUINO=103;ARDUINO_MAIN;__AVR__;__avr__;F_CPU=16000000L;__cplusplus;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVR_ATmega2560__;ARDUINO=104;ARDUINO_MAIN;__AVR__;__avr__;F_CPU=16000000L;__cplusplus;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -66,7 +64,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="ClassDiagram.cd" />
     <None Include="VFRackUnitController.ino">
       <FileType>CppCode</FileType>
     </None>
@@ -74,34 +71,18 @@
   <ItemGroup>
     <ClInclude Include="AD5263.h" />
     <ClInclude Include="FlowController.h" />
-    <ClInclude Include="FlowState.h" />
-    <ClInclude Include="HardwareConstants.h" />
-    <ClInclude Include="PumpState.h" />
-    <ClInclude Include="PurgeState.h" />
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="State.h" />
-    <ClInclude Include="StopState.h" />
-    <ClInclude Include="VentState.h" />
-    <ClInclude Include="VFOutputState.h" />
-    <ClInclude Include="VFInputState.h" />
-    <ClInclude Include="VFSystem.h" />
-    <ClInclude Include="VFSystemConstants.h" />
     <ClInclude Include="Visual Micro\.VFRackUnitController.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AD5263.cpp" />
     <ClCompile Include="FlowController.cpp" />
-    <ClCompile Include="VFOutputState.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="VFRackUnitController.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties arduino.upload.port="COM6" arduino.board.name="mega2560" arduino.board.desc="Arduino Mega 2560 or Mega ADK" arduino.board.property_bag="name=Arduino Mega 2560 or Mega ADK&#xD;&#xA;upload.protocol=wiring&#xD;&#xA;upload.maximum_size=258048&#xD;&#xA;upload.speed=115200&#xD;&#xA;bootloader.low_fuses=0xFF&#xD;&#xA;bootloader.high_fuses=0xD8&#xD;&#xA;bootloader.extended_fuses=0xFD&#xD;&#xA;bootloader.path=stk500v2&#xD;&#xA;bootloader.file=stk500boot_v2_mega2560.hex&#xD;&#xA;bootloader.unlock_bits=0x3F&#xD;&#xA;bootloader.lock_bits=0x0F&#xD;&#xA;build.mcu=atmega2560&#xD;&#xA;build.f_cpu=16000000L&#xD;&#xA;build.core=arduino&#xD;&#xA;build.variant=mega&#xD;&#xA;runtime.ide.path=D:\arduino-1.0.4&#xD;&#xA;build.system.path=D:\arduino-1.0.4\hardware\arduino\system&#xD;&#xA;software=ARDUINO&#xD;&#xA;runtime.ide.version=104&#xD;&#xA;vm.core.include=arduino.h&#xD;&#xA;vm.boardsource.path=D:\arduino-1.0.4\hardware\arduino&#xD;&#xA;vm.boardsource.name=boards.txt&#xD;&#xA;vm.platformname.name=&#xD;&#xA;" arduino.build.mcu="atmega2560" arduino.build.f_cpu="16000000L" arduino.build.core="arduino" arduino.upload.protocol="wiring" arduino.upload.speed="115200" arduino.upload.maximum_size="258048" />
+      <UserProperties arduino.upload.port="COM7" arduino.board.name="mega2560" arduino.board.desc="Arduino Mega 2560 or Mega ADK" arduino.board.property_bag="name=Arduino Mega 2560 or Mega ADK&#xD;&#xA;upload.protocol=wiring&#xD;&#xA;upload.maximum_size=258048&#xD;&#xA;upload.speed=115200&#xD;&#xA;bootloader.low_fuses=0xFF&#xD;&#xA;bootloader.high_fuses=0xD8&#xD;&#xA;bootloader.extended_fuses=0xFD&#xD;&#xA;bootloader.path=stk500v2&#xD;&#xA;bootloader.file=stk500boot_v2_mega2560.hex&#xD;&#xA;bootloader.unlock_bits=0x3F&#xD;&#xA;bootloader.lock_bits=0x0F&#xD;&#xA;build.mcu=atmega2560&#xD;&#xA;build.f_cpu=16000000L&#xD;&#xA;build.core=arduino&#xD;&#xA;build.variant=mega&#xD;&#xA;runtime.ide.path=D:\arduino-1.0.4&#xD;&#xA;build.system.path=D:\arduino-1.0.4\hardware\arduino\system&#xD;&#xA;software=ARDUINO&#xD;&#xA;runtime.ide.version=104&#xD;&#xA;vm.core.include=arduino.h&#xD;&#xA;vm.boardsource.path=D:\arduino-1.0.4\hardware\arduino&#xD;&#xA;vm.boardsource.name=boards.txt&#xD;&#xA;vm.platformname.name=&#xD;&#xA;" arduino.build.mcu="atmega2560" arduino.build.f_cpu="16000000L" arduino.build.core="arduino" arduino.upload.protocol="wiring" arduino.upload.speed="115200" arduino.upload.maximum_size="258048" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>

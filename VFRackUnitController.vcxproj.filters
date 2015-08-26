@@ -16,7 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="VFRackUnitController.ino" />
-    <None Include="ClassDiagram.cd" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Visual Micro\.VFRackUnitController.vsarduino.h">
@@ -28,42 +27,6 @@
     <ClInclude Include="AD5263.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="State.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StopState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PumpState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="VentState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PurgeState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FlowState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="VFInputState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="VFSystemConstants.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HardwareConstants.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="VFSystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="VFOutputState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FlowController.cpp">
@@ -72,13 +35,5 @@
     <ClCompile Include="AD5263.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="VFOutputState.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="VFRackUnitController.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
   </ItemGroup>
 </Project>

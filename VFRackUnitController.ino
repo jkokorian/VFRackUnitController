@@ -13,7 +13,7 @@
 #define STOPSTATE     0 //mfc's off, all valves closed, vacuum pump off
 #define FLOWSTATE     1 //mfc's on, pre-chamber valves open, vacuum pump valve closed, vent valve open, vacuum pump off
 #define PUMPSTATE     2 //mfc's off, all pre-chamber valves closed, vacuum pump valve open, vent valve closed, vacuum pump on
-#define PURGESTATE    3 //pure argon mfc on, bubbler mfc off, bubbler valves closed, pure argon valve open, chamber in/outlets open, vent valve open, vacuum pump off
+#define FLUSHSTATE    3 //pure argon mfc on, bubbler mfc off, bubbler valves closed, pure argon valve open, chamber in/outlets open, vent valve open, vacuum pump off
 #define VENTSTATE     4 //pure argon mfc on, bubbler mfc off, bubbler valves closed, pure argon valve open, chamber in/outlets open, vent valve closed, vacuum pump off
 
 //output port pin positions of valves
@@ -40,8 +40,8 @@
 #define PURE_ARGON_FLOW_POT_CHANNEL       2
 #define AD6253_REFERENCE_VOLTAGE		  5
 
-#define MAXIMUM_FLOW_SETPOINT           400 //SCCM
-#define VACUUM_PRESSURE_THRESHOLD       100
+#define MAXIMUM_FLOW_SETPOINT           500 //SCCM
+#define VACUUM_PRESSURE_THRESHOLD       1000
 
 FlowController bubblerFC(ACTUAL_BUBBLER_FLOW_PIN);
 FlowController pureArgonFC(ACTUAL_PURE_ARGON_FLOW_PIN);
@@ -52,8 +52,10 @@ AD5263 dac(AD5263_CS, AD5263_SD);
 
 float flowControllerKFactor = 1;
 
-int pureArgonVentFlowSetpoint;
-int pureArgonPurgeFlowSetpoint;
+int pureArgonVentStateSetpoint;
+int pureArgonFlushStateSetpoint;
+int pureArgonFlowStateSetpoint;
+int bubblerFlowStateSetpoint;
 
 int actualChamberPressure;
 
@@ -78,7 +80,7 @@ bool updatePhysicalOutputs = true;
 bool chamberIsDirty;
 bool chamberIsVacuum;
 
-#define PC_HOST_VERIFICATION_TIMEOUT 3 //seconds
+#define PC_HOST_VERIFICATION_TIMEOUT 20 //seconds
 bool pcHostStatusVerified = false;
 int pcHostStatusNotVerifiedTime = 0;
 
@@ -87,11 +89,11 @@ int pcHostStatusNotVerifiedTime = 0;
 
 
 void setPureArgonVentFlowSetpoint(int value) {
-	pureArgonVentFlowSetpoint = (value > MAXIMUM_FLOW_SETPOINT ? MAXIMUM_FLOW_SETPOINT : value);
+	pureArgonVentStateSetpoint = (value > MAXIMUM_FLOW_SETPOINT ? MAXIMUM_FLOW_SETPOINT : value);
 }
 
-void setPureArgonPurgeFlowSetpoint(int value) {
-	pureArgonPurgeFlowSetpoint = (value > MAXIMUM_FLOW_SETPOINT ? MAXIMUM_FLOW_SETPOINT : value);
+void setPureArgonFlushFlowSetpoint(int value) {
+	pureArgonFlushStateSetpoint = (value > MAXIMUM_FLOW_SETPOINT ? MAXIMUM_FLOW_SETPOINT : value);
 }
 
 
@@ -132,6 +134,8 @@ void setup() {
 	//initialize pc host verification timer
 	Timer3.initialize(1000000);
 	Timer3.attachInterrupt(on_pcHostVerificationExpire);
+
+	
 
 }
 
@@ -271,22 +275,36 @@ void executeCommand(String command) {
 		sendActualPureArgonFlow();
 
 	} else if (command.startsWith("PAFLOWSP!") && command.length() > 9) {
+		pureArgonFlowStateSetpoint = command.substring(9).toInt();
 		if (currentState == FLOWSTATE) {
-			int value = command.substring(9).toInt();
-			pureArgonFC.setSetpoint(value);
+			pureArgonFC.setSetpoint(pureArgonFlowStateSetpoint);
 			updatePhysicalOutputs = true;
 		}
-		sendPureArgonFlowSetpoint();
-		
+		sendPureArgonFlowStateSetpoint();
+	
+	} else if (command.startsWith("PAVENTSP!") && command.length() > 9) {
+		pureArgonVentStateSetpoint = command.substring(9).toInt();
+		if (currentState == VENTSTATE) {
+			pureArgonFC.setSetpoint(pureArgonVentStateSetpoint);
+			updatePhysicalOutputs = true;
+		}
+		sendPureArgonVentStateSetpoint();
+
+	} else if (command.startsWith("PAFLUSHSP!") && command.length() > 10) {
+		pureArgonFlushStateSetpoint = command.substring(10).toInt();
+		if (currentState == FLUSHSTATE) {
+			pureArgonFC.setSetpoint(pureArgonFlushStateSetpoint);
+			updatePhysicalOutputs = true;
+		}
+		sendPureArgonFlushStateSetpoint();
 
 	} else if (command.startsWith("BBFLOWSP!") && command.length() > 9) {
+		bubblerFlowStateSetpoint = command.substring(9).toInt();
 		if (currentState == FLOWSTATE) {
-			int value = command.substring(9).toInt();
-			bubblerFC.setSetpoint(value);
+			bubblerFC.setSetpoint(bubblerFlowStateSetpoint);
 			updatePhysicalOutputs = true;
 		}
-		sendBubblerFlowSetpoint();
-		
+		sendBubblerFlowStateSetpoint();
 
 	} else if (command == "VALVES?") {
 		sendValveStates();
@@ -299,8 +317,30 @@ void executeCommand(String command) {
 
 	} else if (command == "TEST") {
 		sendDebugInfo();
+
 	} else if (command == "VERSION?") {
 		sendVersionInfo();
+
+	} else if (command == "PRESSURE?") {
+		sendPressure();
+
+	} else if (command == "PAFLOWSP?") {
+		sendPureArgonFlowStateSetpoint();
+	
+	} else if (command == "BBFLOWSP?") {
+		sendBubblerFlowStateSetpoint();
+
+	} else if (command == "PAVENTSP?") {
+		sendPureArgonVentStateSetpoint();
+	
+	} else if (command == "PAWSP?") {
+		sendPureArgonWorkingSetpoint();
+	
+	} else if (command == "BBWSP?") {
+		sendBubblerWorkingSetpoint();
+	
+	} else if (command == "PAFLUSHSP?") {
+		sendPureArgonFlushStateSetpoint();
 	}
 	
 	//the following commands are manual state change requests. Only the STOP command can be called when 'manualStateChangeAllowed' is false.
@@ -311,32 +351,23 @@ void executeCommand(String command) {
 
 	else if (manualStateChangeAllowed) {
 		if (command == "PUMP!") {
-			gotoPumpState();
-
-		} else if (command.startsWith("VENT!")) {
-			//check if a setpoint value is included
-			if (command.length() != 5) {
-				int value = command.substring(5).toInt();
-				setPureArgonVentFlowSetpoint(value);
+			if (isPumpStateAllowed()) {
+				gotoPumpState();
 			}
-			
+
+		} else if (command == "VENT!") {
 			gotoVentState();
 
-		} else if (command == "FLOW!" && !chamberIsVacuum)  {
-			gotoFlowState();
-
-		} else if (command.startsWith("PURGE!")) {
-			//check if a setpoint value is included
-			if (command.length() > 6) {
-				int value = command.substring(6).toInt();
-				setPureArgonPurgeFlowSetpoint(value);
+		} else if (command == "FLOW!") {
+			if (isFlowStateAllowed()) {
+				gotoFlowState();
 			}
-			
-			gotoPurgeState();
+
+		} else if (command == "FLUSH!") {
+			gotoFlushState();
 
 		} else {
 			replySerial("E:UNKNOWN: " + command);
-
 		}
 	}
 
@@ -355,17 +386,40 @@ void sendActualBubblerFlow() {
 	replySerial(reply);
 }
 
-void sendPureArgonFlowSetpoint() {
-	String reply = String("PAFLOWSP:") + String((int)pureArgonFC.getSetpoint());
+void sendPureArgonWorkingSetpoint() {
+	String reply = String("PAWSP:") + String((int)pureArgonFC.getSetpoint());
 	replySerial(reply);
 }
 
-
-void sendBubblerFlowSetpoint() {
-	String reply = String("BBFLOWSP:") + String((int)bubblerFC.getSetpoint());
+void sendPureArgonFlowStateSetpoint() {
+	String reply = String("PAFLOWSP:") + String((int)pureArgonFlowStateSetpoint);
 	replySerial(reply);
 }
 
+void sendPureArgonVentStateSetpoint() {
+	String reply = String("PAVENTSP:") + String((int)pureArgonVentStateSetpoint);
+	replySerial(reply);
+}
+
+void sendPureArgonFlushStateSetpoint() {
+	String reply = String("PAFLUSHSP:") + String((int)pureArgonFlushStateSetpoint);
+	replySerial(reply);
+}
+
+void sendBubblerWorkingSetpoint() {
+	String reply = String("BBWSP:") + String((int)bubblerFC.getSetpoint());
+	replySerial(reply);
+}
+
+void sendBubblerFlowStateSetpoint() {
+	String reply = String("BBFLOWSP:") + String((int)bubblerFlowStateSetpoint);
+	replySerial(reply);
+}
+
+void sendPressure() {
+	String reply = String("PRESSURE:") + String((int)actualChamberPressure);
+	replySerial(reply);
+}
 
 void sendValveStates() {
 	String reply = String("VALVES:");
@@ -462,9 +516,19 @@ void gotoPumpState() {
 	previousState = currentState;
 	currentState = PUMPSTATE;
 	updatePhysicalOutputs = true;
-
-
 	
+}
+
+bool isPumpStateAllowed() {
+	return true;
+}
+
+bool isFlowStateAllowed() {
+	if (chamberIsVacuum) {
+		return false;
+	} else {
+		return true;
+	}
 }
 
 /**
@@ -476,7 +540,7 @@ void gotoVentState() {
 	vacuumPumpIsActive = false;
 
 	dac.activate();
-	pureArgonFC.setSetpoint(MAXIMUM_FLOW_SETPOINT);
+	pureArgonFC.setSetpoint(pureArgonVentStateSetpoint);
 	bubblerFC.setSetpoint(0);
 	
 	bubblerInletValveOpen = false;
@@ -503,7 +567,8 @@ void gotoFlowState() {
 
 	//set outputs
 	vacuumPumpIsActive = false;
-	
+	pureArgonFC.setSetpoint(pureArgonFlowStateSetpoint);
+	bubblerFC.setSetpoint(bubblerFlowStateSetpoint);
 	dac.activate();
 
 	bubblerInletValveOpen = true;
@@ -524,15 +589,15 @@ void gotoFlowState() {
 }
 
 /**
-In the PURGE state, all components are at atmospheric pressure. The chamber is being purged with pure argon.
+In the FLUSH state, all components are at atmospheric pressure. The chamber is being flushed with pure argon.
 **/
-void gotoPurgeState() {
+void gotoFlushState() {
 
 	//set outputs
 	vacuumPumpIsActive = false;
 
 	dac.activate();
-	pureArgonFC.setSetpoint(MAXIMUM_FLOW_SETPOINT);
+	pureArgonFC.setSetpoint(pureArgonFlushStateSetpoint);
 	bubblerFC.setSetpoint(0);
 	
 	bubblerInletValveOpen = false;
@@ -545,7 +610,7 @@ void gotoPurgeState() {
 
 	//raise flags
 	previousState = currentState;
-	currentState = PURGESTATE;
+	currentState = FLUSHSTATE;
 	updatePhysicalOutputs = true;
 
 }
