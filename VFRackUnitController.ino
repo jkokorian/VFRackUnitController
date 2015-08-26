@@ -61,8 +61,8 @@ float flowControllerKFactor = 1;
 int pureArgonVentFlowSetpoint;
 int pureArgonPurgeFlowSetpoint;
 
-char previousState;
-char currentState;
+int previousState;
+int currentState;
 
 bool bubblerInletValveOpen;
 bool bubblerOutletValveOpen;
@@ -141,6 +141,7 @@ void setup() {
 	Timer3.initialize(1000000);
 	Timer3.attachInterrupt(on_pcHostVerificationExpire);
 
+	gotoStopState();
 }
 
 
@@ -199,7 +200,7 @@ void readPressureGaugeControllerRelays() {
 Turns the CONNECTED_TO_PC_LED on or off depending on pcHostStatusVerified
 **/
 void writePcHostStatusVerified() {
-	digitalWrite(CONNECTED_TO_PC_LED, pcHostStatusVerified);
+	digitalWrite(CONNECTED_TO_PC_LED, pcHostStatusVerified && pressureGaugeIsActive);
 }
 
 /**
@@ -412,6 +413,7 @@ void sendVacuumPumpState() {
 }
 
 void sendDebugInfo() {
+	replySerial(String(manualStateChangeAllowed) + String(chamberIsVacuum) + String(pressureGaugeIsActive) + String(currentState));
 }
 
 void sendVersionInfo() {
